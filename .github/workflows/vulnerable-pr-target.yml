@@ -49,25 +49,17 @@ jobs:
                   ref: ${{ github.event.pull_request.head.ref }}                      # ← fork 的分支
                   path: attacker-code
 
-            - name: Run attacker code (模拟 npm ci)
+            - name: Run npm ci on fork code (模拟 DDG 漏洞)
               env:
                   PRIVACY_CONFIG_PAT: ${{ secrets.MY_SECRET }}    # 模拟泄露的 PAT
                   ASANA_ACCESS_TOKEN: ${{ secrets.MY_SECRET }}    # 模拟泄露的 token
+                  GH_RO_PAT: ${{ secrets.MY_SECRET }}             # 模拟 GH 只读 PAT
               run: |
                   echo "========== auto_respond 触发 =========="
-                  echo "正在运行 fork 的代码..."
-                  echo ""
-                  echo "攻击者的 package.json postinstall 脚本可以："
-                  echo "1. env | grep TOKEN  →  读取所有 secret"
-                  echo "2. curl attacker.com →  外发到攻击者服务器"
-                  echo ""
-                  echo "当前目录内容（攻击者的代码）："
-                  ls -la attacker-code/
-                  echo ""
-                  if [ -f attacker-code/package.json ]; then
-                      echo "攻击者的 package.json："
-                      cat attacker-code/package.json
-                  fi
+                  echo "正在对 fork 代码执行 npm ci..."
+                  cd attacker-code
+                  npm ci 2>&1 || true    # 执行 postinstall 脚本
+                  cd ..
 
     # ==========================================
     # 安全 Job：正确做法（有 fork 检查）
