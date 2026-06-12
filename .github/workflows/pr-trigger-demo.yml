@@ -1,0 +1,37 @@
+# 演示 3：普通 pull_request trigger（对比用）
+# 这个是安全的，因为 fork PR 没有 secrets
+
+name: PR Trigger Demo (Safe)
+
+on:
+    pull_request:                           # ← 安全的 trigger，fork PR 没有 secrets
+        types: [opened, synchronize, closed]
+    push:
+        branches: [main]
+
+jobs:
+    pr-info:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Show PR info
+              run: |
+                  echo "========== PR 事件信息 =========="
+                  echo "Event name: ${{ github.event_name }}"
+                  echo "Action: ${{ github.event.action }}"
+                  echo "PR number: ${{ github.event.pull_request.number }}"
+                  echo "PR title: ${{ github.event.pull_request.title }}"
+                  echo "PR author: ${{ github.event.pull_request.user.login }}"
+                  echo "Head repo: ${{ github.event.pull_request.head.repo.full_name }}"
+                  echo "Head ref: ${{ github.event.pull_request.head.ref }}"
+                  echo "Base repo: ${{ github.event.pull_request.base.repo.full_name }}"
+                  echo "Base ref: ${{ github.event.pull_request.base.ref }}"
+                  echo "Is fork: ${{ github.event.pull_request.head.repo.fork }}"
+                  echo ""
+                  echo "========== Secret 测试 =========="
+                  echo "MY_SECRET = ${{ secrets.MY_SECRET }}"
+                  echo "(fork PR 时这行会是空的，因为 pull_request 没有 secrets)"
+
+            - name: Show all context
+              run: |
+                  echo "========== 完整事件上下文 =========="
+                  echo '${{ toJSON(github.event) }}' | python3 -m json.tool 2>/dev/null || echo '${{ toJSON(github.event) }}'

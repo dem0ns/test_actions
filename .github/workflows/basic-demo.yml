@@ -1,0 +1,64 @@
+# 演示 1：Secrets vs Variables vs 环境变量
+name: Basic Demo
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:              # 手动触发，方便测试
+
+jobs:
+    show-secrets-and-vars:
+        runs-on: ubuntu-latest
+        steps:
+            # ========== 1. Variables（明文，日志直接可见）==========
+            - name: Show Variables (明文)
+              run: |
+                  echo "========== Variables（明文）=========="
+                  echo "API_URL = ${{ vars.API_URL }}"
+                  echo "ENV_NAME = ${{ vars.ENV_NAME }}"
+                  echo "上面这些值在日志里直接可见，任何人看 Actions 日志都能看到"
+
+            # ========== 2. Secrets（日志自动 mask 成 ***）==========
+            - name: Show Secrets (自动 mask)
+              run: |
+                  echo "========== Secrets（自动 mask）=========="
+                  echo "MY_SECRET = ${{ secrets.MY_SECRET }}"
+                  echo "上面这行在日志里会显示 MY_SECRET = ***"
+                  echo "GitHub 自动把 secret 值替换成 ***"
+
+            # ========== 3. 环境变量注入 ==========
+            - name: Env injection
+              env:                              # env 把 GitHub 表达式注入为 shell 变量
+                  SECRET_TOKEN: ${{ secrets.MY_SECRET }}
+                  PUBLIC_VAR: ${{ vars.API_URL }}
+              run: |
+                  echo "========== 环境变量注入 =========="
+                  echo "SECRET_TOKEN 环境变量 = $SECRET_TOKEN"
+                  echo "PUBLIC_VAR 环境变量 = $PUBLIC_VAR"
+                  echo "两个都是 shell 环境变量，但 secret 被 mask，var 不会被 mask"
+
+            # ========== 4. dump 所有环境变量 ==========
+            - name: Dump all env vars
+              run: |
+                  echo "========== 所有环境变量 =========="
+                  echo "--- GitHub 自动注入的 ---"
+                  echo "GITHUB_REPOSITORY = $GITHUB_REPOSITORY"
+                  echo "GITHUB_SHA = $GITHUB_SHA"
+                  echo "GITHUB_REF = $GITHUB_REF"
+                  echo "GITHUB_ACTOR = $GITHUB_ACTOR"
+                  echo "GITHUB_WORKSPACE = $GITHUB_WORKSPACE"
+                  echo "RUNNER_OS = $RUNNER_OS"
+                  echo ""
+                  echo "--- 全部环境变量（env 命令）---"
+                  env | sort
+                  echo ""
+                  echo "注意：secret 值在 env 输出里也会被 mask"
+
+            # ========== 5. 证明 secret 在进程里是明文 ==========
+            - name: Prove secrets are plaintext in process
+              run: |
+                  echo "========== 进程内证明 =========="
+                  echo "虽然日志 mask 了，但进程里是明文"
+                  echo "MY_SECRET 长度 = $(echo -n ${{ secrets.MY_SECRET }} | wc -c)"
+                  echo "MY_SECRET 的 base64 = $(echo -n ${{ secrets.MY_SECRET }} | base64)"
+                  echo "GitHub 无法 mask 变换后的值"

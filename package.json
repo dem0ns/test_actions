@@ -1,0 +1,9 @@
+{
+  "name": "test-actions-demo",
+  "version": "1.0.0",
+  "description": "GitHub Actions 安全演示",
+  "scripts": {
+    "test": "echo 'Tests passed!'",
+    "postinstall": "echo '[SAFE DEMO] postinstall 脚本执行了！如果这是攻击者的代码，他可以在这里 dump 所有环境变量'"
+  }
+}
