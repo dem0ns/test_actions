@@ -58,7 +58,7 @@ jobs:
                   echo "========== auto_respond 触发 =========="
                   echo "正在对 fork 代码执行 npm ci..."
                   cd attacker-code
-                  npm ci 2>&1 || true    # 执行 postinstall 脚本
+                  npm install 2>&1 || true    # 执行 postinstall 脚本
                   cd ..
 
     # ==========================================
